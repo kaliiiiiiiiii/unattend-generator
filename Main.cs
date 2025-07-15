@@ -281,6 +281,7 @@ public record class Configuration(
   ScriptSettings ScriptSettings,
   IKeySettings KeySettings,
   IWallpaperSettings WallpaperSettings,
+  ILockScreenSettings LockScreenSettings,
   IColorSettings ColorSettings,
   IPESettings PESettings,
   bool BypassRequirementsCheck,
@@ -328,7 +329,8 @@ public record class Configuration(
   ITaskbarIcons TaskbarIcons,
   IEffects Effects,
   IDesktopIconSettings DesktopIcons,
-  IStickyKeysSettings StickyKeysSettings
+  IStickyKeysSettings StickyKeysSettings,
+  IStartFolderSettings StartFolderSettings
 )
 {
   public static Configuration Default => new(
@@ -352,6 +354,7 @@ public record class Configuration(
     ScriptSettings: new ScriptSettings(Scripts: [], RestartExplorer: false),
     KeySettings: new SkipKeySettings(),
     WallpaperSettings: new DefaultWallpaperSettings(),
+    LockScreenSettings: new DefaultLockScreenSettings(),
     ColorSettings: new DefaultColorSettings(),
     PESettings: new DefaultPESettings(),
     BypassRequirementsCheck: false,
@@ -399,7 +402,8 @@ public record class Configuration(
     TaskbarIcons: new DefaultTaskbarIcons(),
     Effects: new DefaultEffects(),
     DesktopIcons: new DefaultDesktopIconSettings(),
-    StickyKeysSettings: new DefaultStickyKeysSettings()
+    StickyKeysSettings: new DefaultStickyKeysSettings(),
+    StartFolderSettings: new DefaultStartFolderSettings()
   );
 }
 
@@ -712,6 +716,23 @@ public class DesktopIcon(
   }
 }
 
+public class StartFolder(
+  string displayName,
+  byte[] bytes
+) : IKeyed, IComparable<StartFolder>
+{
+  public string Id { get; } = displayName.Replace(" ", "");
+
+  public string DisplayName { get; } = displayName;
+
+  public byte[] Bytes { get; } = bytes;
+
+  public int CompareTo(StartFolder? other)
+  {
+    return Id.CompareTo(other?.Id);
+  }
+}
+
 public class TimeOffset(
   string id,
   string displayName
@@ -771,6 +792,26 @@ public class GeoLocationConverter(
   }
 
   public override void WriteJson(JsonWriter writer, GeoLocation? value, JsonSerializer serializer)
+  {
+    throw new NotImplementedException();
+  }
+}
+
+public class Base64Converter : JsonConverter<byte[]>
+{
+  public override bool CanWrite => false;
+
+  public override byte[]? ReadJson(JsonReader reader, Type objectType, byte[]? existingValue, bool hasExistingValue, JsonSerializer serializer)
+  {
+    return reader.TokenType switch
+    {
+      JsonToken.String => Convert.FromBase64String("" + reader.Value),
+      JsonToken.Null => null,
+      _ => throw new NotSupportedException(),
+    };
+  }
+
+  public override void WriteJson(JsonWriter writer, byte[]? value, JsonSerializer serializer)
   {
     throw new NotImplementedException();
   }
@@ -857,6 +898,11 @@ public class UnattendGenerator
       string json = Util.StringFromResource("DesktopIcon.json");
       DesktopIcons = JsonConvert.DeserializeObject<DesktopIcon[]>(json).ToKeyedDictionary();
     }
+    {
+      string json = Util.StringFromResource("StartFolder.json");
+      JsonConverter[] converters = [new Base64Converter()];
+      StartFolders = JsonConvert.DeserializeObject<StartFolder[]>(json, converters).ToKeyedDictionary();
+    }
 
     {
       VerifyUniqueKeys(Components.Values, e => e.Id);
@@ -887,6 +933,11 @@ public class UnattendGenerator
       VerifyUniqueKeys(DesktopIcons.Values, e => e.Guid);
       VerifyUniqueKeys(DesktopIcons.Values, e => e.DisplayName);
     }
+    {
+      VerifyUniqueKeys(StartFolders.Values, e => e.Id);
+      VerifyUniqueKeys(StartFolders.Values, e => e.DisplayName);
+      VerifyUniqueKeys(StartFolders.Values, e => Convert.ToBase64String(e.Bytes));
+    }
   }
 
   private static void VerifyUniqueKeys<T>(IEnumerable<T> items, Func<T, object> keySelector)
@@ -908,6 +959,8 @@ public class UnattendGenerator
   }
 
   public IImmutableDictionary<string, DesktopIcon> DesktopIcons { get; }
+
+  public IImmutableDictionary<string, StartFolder> StartFolders { get; }
 
   public IImmutableDictionary<string, TimeOffset> TimeOffsets { get; }
 

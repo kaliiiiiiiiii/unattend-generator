@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.Immutable;
 using System.IO;
+using System.Linq;
 using System.Text;
 using System.Xml;
 
@@ -147,6 +148,20 @@ public record class CustomDesktopIconSettings : IDesktopIconSettings
   }
 
   public ImmutableSortedDictionary<DesktopIcon, bool> Settings { get; init; }
+}
+
+public interface IStartFolderSettings;
+
+public record class DefaultStartFolderSettings : IStartFolderSettings;
+
+public record class CustomStartFolderSettings : IStartFolderSettings
+{
+  public CustomStartFolderSettings(IDictionary<StartFolder, bool> settings)
+  {
+    Settings = ImmutableSortedDictionary.CreateRange(settings);
+  }
+
+  public ImmutableSortedDictionary<StartFolder, bool> Settings { get; init; }
 }
 
 class OptimizationsModifier(ModifierContext context) : Modifier(context)
@@ -376,7 +391,7 @@ class OptimizationsModifier(ModifierContext context) : Modifier(context)
 
     if (Configuration.DisableAppSuggestions)
     {
-      // https://skanthak.homepage.t-online.de/ten.html#eighth
+      // https://skanthak.hier-im-netz.de/ten.html#eight
 
       DefaultUserScript.Append("""
         $names = @(
@@ -393,6 +408,8 @@ class OptimizationsModifier(ModifierContext context) : Modifier(context)
           'SubscribedContent-338388Enabled';
           'SubscribedContent-338389Enabled';
           'SubscribedContent-338393Enabled';
+          'SubscribedContent-353694Enabled';
+          'SubscribedContent-353696Enabled';
           'SubscribedContent-353698Enabled';
           'SystemPaneSuggestionsEnabled';
         );
@@ -702,6 +719,19 @@ class OptimizationsModifier(ModifierContext context) : Modifier(context)
           }
           UserOnceScript.Append(sb.ToString());
           UserOnceScript.RestartExplorer();
+          break;
+        default:
+          throw new NotSupportedException();
+      }
+    }
+    {
+      switch (Configuration.StartFolderSettings)
+      {
+        case DefaultStartFolderSettings:
+          break;
+        case CustomStartFolderSettings folders:
+          IEnumerable<byte> bytes = folders.Settings.ToList().Where(pair => pair.Value).SelectMany(pair => pair.Key.Bytes);
+          UserOnceScript.Append(@$"Set-ItemProperty -Path 'Registry::HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Start' -Name 'VisiblePlaces' -Value $( [convert]::FromBase64String('{Convert.ToBase64String(bytes.ToArray())}') ) -Type 'Binary';");
           break;
         default:
           throw new NotSupportedException();
