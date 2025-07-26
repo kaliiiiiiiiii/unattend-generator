@@ -11,7 +11,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="resource\ClassicContextMenu.ps1" />
     <None Remove="resource\DesktopIcon.json" />
     <None Remove="resource\DisableDefender.vbs" />
     <None Remove="resource\MakeEdgeUninstallable.ps1" />
@@ -51,7 +50,6 @@
     <EmbeddedResource Include="resource\SetComputerName.ps1" />
     <EmbeddedResource Include="resource\SetColorTheme.ps1" />
     <EmbeddedResource Include="resource\PauseWindowsUpdate.ps1" />
-    <EmbeddedResource Include="resource\ClassicContextMenu.ps1" />
     <EmbeddedResource Include="resource\MoveActiveHours.vbs" />
     <EmbeddedResource Include="resource\SetWallpaper.ps1" />
     <EmbeddedResource Include="resource\MakeEdgeUninstallable.ps1" />
